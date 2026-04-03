@@ -43,15 +43,13 @@ export const createMatchSchema = z
     homeTeam: z.string().min(1, "homeTeam is required"),
     awayTeam: z.string().min(1, "awayTeam is required"),
     startTime: z
-      .string()
-      .transform((val) => parseToIsoString(val) || val)
+      .preprocess((val) => parseToIsoString(val) || val, z.string())
       .refine((val) => {
         const date = new Date(val);
         return !Number.isNaN(date.getTime());
       }, "startTime must be a valid date"),
     endTime: z
-      .string()
-      .transform((val) => parseToIsoString(val) || val)
+      .preprocess((val) => parseToIsoString(val) || val, z.string())
       .refine((val) => {
         const date = new Date(val);
         return !Number.isNaN(date.getTime());

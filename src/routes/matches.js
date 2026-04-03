@@ -2,10 +2,11 @@ import { Router } from "express";
 import {
   createMatchSchema,
   listMatchesQuerySchema,
+  MATCH_STATUS,
 } from "../validation/matches.js";
 import { db } from "../db/db.js";
 import { matches } from "../db/schema.js";
-import { getMatchStatus } from "../utilites/match-status.js";
+import { getMatchStatus } from "../utilities/match-status.js";
 import { desc } from "drizzle-orm";
 
 export const matchRouter = Router();
@@ -34,11 +35,12 @@ matchRouter.get("/", async (req, res) => {
       .orderBy(desc(matches.createdAt))
       .limit(limit);
 
-    res.json({ nosOfMatches: data.length, maches: data });
+    res.json({ nosOfMatches: data.length, matches: data });
   } catch (error) {
+    console.error("Error listing matches:", error);
     res.status(500).json({
       error: "Failed to list matches",
-      message: JSON.stringify(error),
+      message: error.message || "Internal server error",
     });
   }
 });
@@ -67,15 +69,16 @@ matchRouter.post("/", async (req, res) => {
         endTime: new Date(endTime),
         homeScore: homeScore ?? 0,
         awayScore: awayScore ?? 0,
-        status: getMatchStatus(startTime, endTime),
+        status: getMatchStatus(startTime, endTime) || MATCH_STATUS.SCHEDULED,
       })
       .returning();
 
     res.status(201).json({ data: event });
   } catch (error) {
+    console.error("Error creating match:", error);
     res.status(500).json({
       error: "Failed to create match",
-      message: JSON.stringify(error),
+      message: error.message || "Internal server error",
     });
   }
 });
