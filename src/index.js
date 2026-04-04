@@ -11,10 +11,6 @@ const server = http.createServer(app);
 
 app.use(express.json());
 
-// app.get("/", (req, res) => {
-//   res.send("Hello from Livesportz API!");
-// });
-
 app.use("/matches", matchRouter);
 
 const { broadcastMatchCreated } = attachWebSocketServer(server);
@@ -24,8 +20,9 @@ app.locals.broadcastMatchCreated = broadcastMatchCreated;
 server.listen(PORT, HOST, () => {
   const baseUrl =
     HOST === "0.0.0.0" ? `http://localhost:${PORT}` : `http://${HOST}:${PORT}`;
+  const wsUrl = new URL(baseUrl);
+  wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+
   console.log(`Server listening on ${baseUrl}`);
-  console.log(
-    `WebSocket server listening on ${baseUrl.replace("http", "ws")}/ws`,
-  );
+  console.log(`WebSocket server listening on ${wsUrl.toString()}/ws`);
 });
