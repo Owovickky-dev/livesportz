@@ -3,11 +3,14 @@ import {
   createMatchSchema,
   listMatchesQuerySchema,
   MATCH_STATUS,
+  matchIdParamSchema,
 } from "../validation/matches.js";
 import { db } from "../db/db.js";
 import { matches } from "../db/schema.js";
 import { getMatchStatus } from "../utilities/match-status.js";
 import { desc } from "drizzle-orm";
+import { commentary } from "../db/schema.js";
+import { createCommentarySchema } from "../validation/commentary.js";
 
 export const matchRouter = Router();
 
@@ -93,6 +96,57 @@ matchRouter.post("/", async (req, res) => {
     console.error("Error creating match:", error);
     res.status(500).json({
       error: "Failed to create match",
+      message: error.message || "Internal server error",
+    });
+  }
+});
+
+matchRouter.post("/:id/commentary", async (req, res) => {
+  const paramParsed = matchIdParamSchema.safeParse(req.params);
+  if (!paramParsed.success) {
+    const errors = paramParsed.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    return res.status(400).json({
+      error: "Invalid parameter",
+      message: errors,
+    });
+  }
+
+  const bodyParsed = createCommentarySchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    const errors = bodyParsed.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    return res.status(400).json({
+      error: "Invalid payload",
+      message: errors,
+    });
+  }
+
+  const { id: matchId } = paramParsed.data;
+  const commentaryData = {
+    ...bodyParsed.data,
+    matchId,
+    metadata: bodyParsed.data.metaData,
+    metaData: undefined, // remove the extra field
+  };
+
+  try {
+    const [result] = await db
+      .insert(commentary)
+      .values(commentaryData)
+      .returning();
+
+    if (!result) {
+      throw new Error("Failed to create commentary");
+    }
+
+    res.status(201).json({ data: result });
+  } catch (error) {
+    console.error("Error creating commentary:", error);
+    res.status(500).json({
+      error: "Failed to create commentary",
       message: error.message || "Internal server error",
     });
   }
