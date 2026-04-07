@@ -1,4 +1,5 @@
 import { WebSocket, WebSocketServer } from "ws";
+import { wsArcjet } from "../arcjet.js";
 
 function sendJson(socket, payload) {
   if (socket.readyState !== WebSocket.OPEN) return;
@@ -24,16 +25,54 @@ export function attachWebSocketServer(server, options = {}) {
     server,
     path: "/ws",
     maxPayload: 1024 * 1024, // 1MB max message
-    verifyClient: ({ req }) => {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
-      const token = authHeader.slice("Bearer ".length).trim();
-      if (!token) return false;
-      return !expectedToken || token === expectedToken;
-    },
+    // verifyClient: ({ req }) => {
+    //   const authHeader = req.headers.authorization;
+    //   if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
+    //   const token = authHeader.slice("Bearer ".length).trim();
+    //   if (!token) return false;
+    //   return !expectedToken || token === expectedToken;
+    // },
   });
 
-  wss.on("connection", (socket) => {
+  wss.on("connection", async (socket, req) => {
+    if (wsArcjet) {
+      try {
+        const allowExcution = await wsArcjet.protect(req);
+
+        if (allowExcution.isDenied()) {
+          const code = allowExcution.reason.isRateLimit() ? 1013 : 1008;
+          const reason = allowExcution.reason.isRateLimit()
+            ? "Rate limit exceeded"
+            : "Forbidden";
+          socket.close(code, reason);
+          return;
+        }
+      } catch (error) {
+        console.error("WS Connection Error", error);
+        socket.close(1011, "Server security error");
+        return;
+      }
+    }
+
+    // if (wsArcjet) {
+    //   try {
+    //     const result = await wsArcjet.protect(req);
+
+    //     if (result.isDenied) {
+    //       const code = result.reason.isRateLimit ? 1013 : 1008;
+    //       const reason = result.reason.isRateLimit
+    //         ? "Rate limit exceeded"
+    //         : "Forbidden";
+    //       socket.close(code, reason);
+    //       return;
+    //     }
+    //   } catch (error) {
+    //     console.error("WS Connection Error", error);
+    //     socket.close(1011, "Server security error");
+    //     return;
+    //   }
+    // }
+
     socket.isAlive = true;
 
     sendJson(socket, {
